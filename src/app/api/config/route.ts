@@ -5,7 +5,7 @@ import { ConfigModelProvider } from '@/lib/config/types';
 
 type SaveConfigBody = {
   key: string;
-  value: string;
+  value: unknown;
 };
 
 export const GET = async (req: NextRequest) => {
@@ -46,7 +46,7 @@ export const POST = async (req: NextRequest) => {
   try {
     const body: SaveConfigBody = await req.json();
 
-    if (!body.key || !body.value) {
+    if (!body.key || !Object.prototype.hasOwnProperty.call(body, 'value')) {
       return Response.json(
         {
           message: 'Key and value are required.',

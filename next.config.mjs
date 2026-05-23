@@ -16,6 +16,10 @@ const nextConfig = {
     'playwright',
     'officeparser',
     'file-type',
+    'seltz',
+    '@grpc/grpc-js',
+    '@grpc/proto-loader',
+    '@bufbuild/protobuf',
   ],
   outputFileTracingIncludes: {
     '/api/**': [

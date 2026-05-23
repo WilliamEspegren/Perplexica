@@ -1,4 +1,5 @@
 import { Discover } from '@/app/discover/page';
+import { getSearchThumbnailSrc } from '@/lib/utils/thumbnail';
 import Link from 'next/link';
 
 const SmallNewsCard = ({ item }: { item: Discover }) => (
@@ -10,11 +11,7 @@ const SmallNewsCard = ({ item }: { item: Discover }) => (
     <div className="relative aspect-video overflow-hidden">
       <img
         className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-        src={
-          new URL(item.thumbnail).origin +
-          new URL(item.thumbnail).pathname +
-          `?id=${new URL(item.thumbnail).searchParams.get('id')}`
-        }
+        src={getSearchThumbnailSrc(item.thumbnail)}
         alt={item.title}
       />
     </div>

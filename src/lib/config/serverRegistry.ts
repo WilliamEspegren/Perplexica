@@ -13,3 +13,11 @@ export const getConfiguredModelProviderById = (
 
 export const getSearxngURL = () =>
   configManager.getConfig('search.searxngURL', '');
+
+export const getSearchProvider = (): 'searxng' | 'seltz' =>
+  configManager.getConfig('search.searchProvider', 'searxng') === 'seltz'
+    ? 'seltz'
+    : 'searxng';
+
+export const getSeltzApiKey = () =>
+  String(configManager.getConfig('search.seltzApiKey', '') || '');

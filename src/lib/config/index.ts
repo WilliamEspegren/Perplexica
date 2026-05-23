@@ -17,7 +17,9 @@ class ConfigManager {
     personalization: {},
     modelProviders: [],
     search: {
+      searchProvider: 'searxng',
       searxngURL: '',
+      seltzApiKey: '',
     },
   };
   uiConfigSections: UIConfigSections = {
@@ -103,6 +105,25 @@ class ConfigManager {
     modelProviders: [],
     search: [
       {
+        name: 'Search Provider',
+        key: 'searchProvider',
+        type: 'select',
+        required: false,
+        description: 'Choose the backend used for text web search.',
+        default: 'searxng',
+        options: [
+          {
+            name: 'SearXNG',
+            value: 'searxng',
+          },
+          {
+            name: 'Seltz',
+            value: 'seltz',
+          },
+        ],
+        scope: 'server',
+      },
+      {
         name: 'SearXNG URL',
         key: 'searxngURL',
         type: 'string',
@@ -112,6 +133,17 @@ class ConfigManager {
         default: '',
         scope: 'server',
         env: 'SEARXNG_API_URL',
+      },
+      {
+        name: 'Seltz API Key',
+        key: 'seltzApiKey',
+        type: 'password',
+        required: false,
+        description: 'Your Seltz API key for Seltz-powered text search.',
+        placeholder: 'Seltz API Key',
+        default: '',
+        scope: 'server',
+        env: 'SELTZ_API_KEY',
       },
     ],
   };
@@ -167,8 +199,24 @@ class ConfigManager {
     }
   }
 
+  private reloadConfig() {
+    if (!fs.existsSync(this.configPath)) return;
+
+    try {
+      this.currentConfig = this.migrateConfig(
+        JSON.parse(fs.readFileSync(this.configPath, 'utf-8')),
+      );
+    } catch (err) {
+      console.error(`Error reloading config file at ${this.configPath}:`, err);
+    }
+  }
+
   private migrateConfig(config: Config): Config {
-    /* TODO: Add migrations */
+    config.search = config.search || {};
+    config.search.searchProvider = config.search.searchProvider || 'searxng';
+    config.search.searxngURL = config.search.searxngURL || '';
+    config.search.seltzApiKey = config.search.seltzApiKey || '';
+
     return config;
   }
 
@@ -238,6 +286,8 @@ class ConfigManager {
   }
 
   public getConfig(key: string, defaultValue?: any): any {
+    this.reloadConfig();
+
     const nested = key.split('.');
     let obj: any = this.currentConfig;
 
@@ -252,6 +302,8 @@ class ConfigManager {
   }
 
   public updateConfig(key: string, val: any) {
+    this.reloadConfig();
+
     const parts = key.split('.');
     if (parts.length === 0) return;
 
@@ -272,6 +324,8 @@ class ConfigManager {
   }
 
   public addModelProvider(type: string, name: string, config: any) {
+    this.reloadConfig();
+
     const newModelProvider: ConfigModelProvider = {
       id: crypto.randomUUID(),
       name,
@@ -289,6 +343,8 @@ class ConfigManager {
   }
 
   public removeModelProvider(id: string) {
+    this.reloadConfig();
+
     const index = this.currentConfig.modelProviders.findIndex(
       (p) => p.id === id,
     );
@@ -302,6 +358,8 @@ class ConfigManager {
   }
 
   public async updateModelProvider(id: string, name: string, config: any) {
+    this.reloadConfig();
+
     const provider = this.currentConfig.modelProviders.find((p) => {
       return p.id === id;
     });
@@ -321,6 +379,8 @@ class ConfigManager {
     type: 'embedding' | 'chat',
     model: any,
   ) {
+    this.reloadConfig();
+
     const provider = this.currentConfig.modelProviders.find(
       (p) => p.id === providerId,
     );
@@ -345,6 +405,8 @@ class ConfigManager {
     type: 'embedding' | 'chat',
     modelKey: string,
   ) {
+    this.reloadConfig();
+
     const provider = this.currentConfig.modelProviders.find(
       (p) => p.id === providerId,
     );
@@ -365,10 +427,13 @@ class ConfigManager {
   }
 
   public isSetupComplete() {
+    this.reloadConfig();
     return this.currentConfig.setupComplete;
   }
 
   public markSetupComplete() {
+    this.reloadConfig();
+
     if (!this.currentConfig.setupComplete) {
       this.currentConfig.setupComplete = true;
     }
@@ -381,6 +446,7 @@ class ConfigManager {
   }
 
   public getCurrentConfig(): Config {
+    this.reloadConfig();
     return JSON.parse(JSON.stringify(this.currentConfig));
   }
 }

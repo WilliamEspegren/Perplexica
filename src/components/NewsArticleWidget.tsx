@@ -1,3 +1,4 @@
+import { getSearchThumbnailSrc } from '@/lib/utils/thumbnail';
 import { useEffect, useState } from 'react';
 
 interface Article {
@@ -46,11 +47,7 @@ const NewsArticleWidget = () => {
           <div className="relative w-24 min-w-24 max-w-24 h-full overflow-hidden">
             <img
               className="object-cover w-full h-full bg-light-200 dark:bg-dark-200 group-hover:scale-110 transition-transform duration-300"
-              src={
-                new URL(article.thumbnail).origin +
-                new URL(article.thumbnail).pathname +
-                `?id=${new URL(article.thumbnail).searchParams.get('id')}`
-              }
+              src={getSearchThumbnailSrc(article.thumbnail)}
               alt={article.title}
             />
           </div>

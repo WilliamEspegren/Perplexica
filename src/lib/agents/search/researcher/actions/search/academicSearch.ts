@@ -48,6 +48,7 @@ const academicSearchAction: ResearchAction<typeof schema> = {
       researchBlock: researchBlock,
       session: additionalConfig.session,
       searchConfig: {
+        provider: 'searxng',
         engines: ['arxiv', 'google scholar', 'pubmed'],
       },
     });

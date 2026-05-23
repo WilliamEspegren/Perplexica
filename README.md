@@ -24,7 +24,7 @@ Want to know more about its architecture and how it works? You can read it [here
 
 🧩 **Widgets** - Helpful UI cards that show up when relevant, like weather, calculations, stock prices, and other quick lookups.
 
-🔍 **Web search powered by SearxNG** - Access multiple search engines while keeping your identity private. Support for Tavily and Exa coming soon for even better results.
+🔍 **Configurable web search** - Use self-hosted SearXNG by default, or connect Seltz for API-powered text search and Discover results.
 
 📷 **Image and video search** - Find visual content alongside text results. Search isn't limited to just articles anymore.
 
@@ -104,6 +104,10 @@ docker run -d -p 3000:3000 -e SEARXNG_API_URL=http://your-searxng-url:8080 -v va
 - Wolfram Alpha search engine enabled
 
 Replace `http://your-searxng-url:8080` with your actual SearxNG URL. Then configure your AI provider settings in the setup screen at http://localhost:3000.
+
+#### Using Seltz for Text Search
+
+Vane can use Seltz for text web search and Discover results. Set `SELTZ_API_KEY` or add the key in Settings > Search, then choose Seltz as the search provider. SearXNG is still used for image, video, academic, and discussion searches.
 
 #### Advanced Setup (Building from Source)
 

@@ -5,6 +5,9 @@ import { ChatTurnMessage } from '@/lib/types';
 import { SearchSources } from '@/lib/agents/search/types';
 import APISearchAgent from '@/lib/agents/search/api';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 interface ChatRequestBody {
   optimizationMode: 'speed' | 'balanced' | 'quality';
   sources: SearchSources[];
@@ -51,20 +54,30 @@ export const POST = async (req: Request) => {
 
     const agent = new APISearchAgent();
 
-    agent.searchAsync(session, {
-      chatHistory: history,
-      config: {
-        embedding: embeddings,
-        llm: llm,
-        sources: body.sources,
-        mode: body.optimizationMode,
-        fileIds: [],
-        systemInstructions: body.systemInstructions || '',
-      },
-      followUp: body.query,
-      chatId: crypto.randomUUID(),
-      messageId: crypto.randomUUID(),
-    });
+    agent
+      .searchAsync(session, {
+        chatHistory: history,
+        config: {
+          embedding: embeddings,
+          llm: llm,
+          sources: body.sources,
+          mode: body.optimizationMode,
+          fileIds: [],
+          systemInstructions: body.systemInstructions || '',
+        },
+        followUp: body.query,
+        chatId: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+      })
+      .catch((err) => {
+        console.error('API search agent failed:', err);
+        session.emit('error', {
+          data:
+            err instanceof Error
+              ? err.message
+              : 'An error occurred while generating the response.',
+        });
+      });
 
     if (!body.stream) {
       return new Promise(

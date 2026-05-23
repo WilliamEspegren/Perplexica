@@ -49,6 +49,7 @@
     "react-text-to-speech": "^0.14.5",
     "react-textarea-autosize": "^8.5.3",
     "rfc6902": "^5.1.2",
+    "seltz": "^2.0.0",
     "sonner": "^1.4.41",
     "tailwind-merge": "^2.2.2",
     "yahoo-finance2": "^3.10.2",

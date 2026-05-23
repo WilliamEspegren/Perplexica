@@ -1,4 +1,9 @@
+import { getSearchProvider } from '@/lib/config/serverRegistry';
 import { searchSearxng } from '@/lib/searxng';
+import { searchWeb, type WebSearchResult } from '@/lib/search';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const websitesForTopic = {
   tech: {
@@ -25,6 +30,17 @@ const websitesForTopic = {
 
 type Topic = keyof typeof websitesForTopic;
 
+const dedupeResults = (results: WebSearchResult[]) => {
+  const seenUrls = new Set();
+
+  return results.filter((item) => {
+    const url = item.url?.toLowerCase().trim();
+    if (seenUrls.has(url)) return false;
+    seenUrls.add(url);
+    return true;
+  });
+};
+
 export const GET = async (req: Request) => {
   try {
     const params = new URL(req.url).searchParams;
@@ -34,35 +50,66 @@ export const GET = async (req: Request) => {
     const topic: Topic = (params.get('topic') as Topic) || 'tech';
 
     const selectedTopic = websitesForTopic[topic];
+    const searchProvider = getSearchProvider();
 
-    let data = [];
+    let data: WebSearchResult[] = [];
 
-    if (mode === 'normal') {
-      const seenUrls = new Set();
-
-      data = (
-        await Promise.all(
-          selectedTopic.links.flatMap((link) =>
-            selectedTopic.query.map(async (query) => {
-              return (
-                await searchSearxng(`site:${link} ${query}`, {
-                  engines: ['bing news'],
-                  pageno: 1,
-                  language: 'en',
-                })
-              ).results;
-            }),
-          ),
+    if (searchProvider === 'seltz') {
+      if (mode === 'normal') {
+        data = dedupeResults(
+          (
+            await Promise.all(
+              selectedTopic.query.map(async (query) => {
+                return (
+                  await searchWeb(query, {
+                    provider: 'seltz',
+                    scope: 'news',
+                    includeDomains: selectedTopic.links,
+                    maxResults: 10,
+                  })
+                ).results;
+              }),
+            )
+          ).flat(),
         )
-      )
-        .flat()
-        .filter((item) => {
-          const url = item.url?.toLowerCase().trim();
-          if (seenUrls.has(url)) return false;
-          seenUrls.add(url);
-          return true;
-        })
-        .sort(() => Math.random() - 0.5);
+          .sort(() => Math.random() - 0.5);
+      } else {
+        data = (
+          await searchWeb(
+            selectedTopic.query[
+              Math.floor(Math.random() * selectedTopic.query.length)
+            ],
+            {
+              provider: 'seltz',
+              scope: 'news',
+              includeDomains: [
+                selectedTopic.links[
+                  Math.floor(Math.random() * selectedTopic.links.length)
+                ],
+              ],
+              maxResults: 10,
+            },
+          )
+        ).results;
+      }
+    } else if (mode === 'normal') {
+      data = dedupeResults(
+        (
+          await Promise.all(
+            selectedTopic.links.flatMap((link) =>
+              selectedTopic.query.map(async (query) => {
+                return (
+                  await searchSearxng(`site:${link} ${query}`, {
+                    engines: ['bing news'],
+                    pageno: 1,
+                    language: 'en',
+                  })
+                ).results;
+              }),
+            ),
+          )
+        ).flat(),
+      ).sort(() => Math.random() - 0.5);
     } else {
       data = (
         await searchSearxng(
@@ -88,7 +135,7 @@ export const GET = async (req: Request) => {
     console.error(`An error occurred in discover route: ${err}`);
     return Response.json(
       {
-        message: 'An error has occurred',
+        message: err instanceof Error ? err.message : 'An error has occurred',
       },
       {
         status: 500,

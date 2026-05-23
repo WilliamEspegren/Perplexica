@@ -1,6 +1,6 @@
 import BaseEmbedding from '@/lib/models/base/embedding';
 import BaseLLM from '@/lib/models/base/llm';
-import { searchSearxng, SearxngSearchOptions } from '@/lib/searxng';
+import { searchWeb, WebSearchOptions } from '@/lib/search';
 import SessionManager from '@/lib/session';
 import { Chunk, ResearchBlock, SearchResultsResearchBlock } from '@/lib/types';
 import { SearchAgentConfig } from '../../../types';
@@ -9,10 +9,61 @@ import z from 'zod';
 import Scraper from '@/lib/scraper';
 import { splitText } from '@/lib/utils/splitText';
 
+const createSearchResultsEmitter = (input: {
+  researchBlock: ResearchBlock;
+  session: InstanceType<typeof SessionManager>;
+}) => {
+  const searchResultsBlockId = crypto.randomUUID();
+  let searchResultsEmitted = false;
+
+  return (resultChunks: Chunk[]) => {
+    if (!searchResultsEmitted) {
+      searchResultsEmitted = true;
+
+      input.researchBlock.data.subSteps.push({
+        id: searchResultsBlockId,
+        type: 'search_results',
+        reading: resultChunks,
+      });
+    } else {
+      const subStepIndex = input.researchBlock.data.subSteps.findIndex(
+        (step) => step.id === searchResultsBlockId,
+      );
+
+      if (subStepIndex === -1) return;
+
+      const subStep = input.researchBlock.data.subSteps[
+        subStepIndex
+      ] as SearchResultsResearchBlock;
+
+      subStep.reading.push(...resultChunks);
+    }
+
+    input.session.updateBlock(input.researchBlock.id, [
+      {
+        op: 'replace',
+        path: '/data/subSteps',
+        value: input.researchBlock.data.subSteps,
+      },
+    ]);
+  };
+};
+
+const safeSearchWeb = async (query: string, searchConfig?: WebSearchOptions) =>
+  searchWeb(query, {
+    ...(searchConfig ? searchConfig : {}),
+  }).catch((err) => {
+    console.error(`Search failed for query "${query}":`, err);
+    return {
+      results: [],
+      suggestions: [],
+    };
+  });
+
 export const executeSearch = async (input: {
   queries: string[];
   mode: SearchAgentConfig['mode'];
-  searchConfig?: SearxngSearchOptions;
+  searchConfig?: WebSearchOptions;
   researchBlock: ResearchBlock;
   session: InstanceType<typeof SessionManager>;
   llm: BaseLLM<any>;
@@ -35,15 +86,15 @@ export const executeSearch = async (input: {
   ]);
 
   if (input.mode === 'speed' || input.mode === 'balanced') {
-    const searchResultsBlockId = crypto.randomUUID();
-    let searchResultsEmitted = false;
+    const emitSearchResults = createSearchResultsEmitter({
+      researchBlock,
+      session: input.session,
+    });
 
     const results: Chunk[] = [];
 
     const search = async (q: string) => {
-      const res = await searchSearxng(q, {
-        ...(input.searchConfig ? input.searchConfig : {}),
-      });
+      const res = await safeSearchWeb(q, input.searchConfig);
 
       let resultChunks: Chunk[] = [];
 
@@ -88,41 +139,7 @@ export const executeSearch = async (input: {
         results.push(...resultChunks);
       }
 
-      if (!searchResultsEmitted) {
-        searchResultsEmitted = true;
-
-        researchBlock.data.subSteps.push({
-          id: searchResultsBlockId,
-          type: 'search_results',
-          reading: resultChunks,
-        });
-
-        input.session.updateBlock(researchBlock.id, [
-          {
-            op: 'replace',
-            path: '/data/subSteps',
-            value: researchBlock.data.subSteps,
-          },
-        ]);
-      } else if (searchResultsEmitted) {
-        const subStepIndex = researchBlock.data.subSteps.findIndex(
-          (step) => step.id === searchResultsBlockId,
-        );
-
-        const subStep = researchBlock.data.subSteps[
-          subStepIndex
-        ] as SearchResultsResearchBlock;
-
-        subStep.reading.push(...resultChunks);
-
-        input.session.updateBlock(researchBlock.id, [
-          {
-            op: 'replace',
-            path: '/data/subSteps',
-            value: researchBlock.data.subSteps,
-          },
-        ]);
-      }
+      emitSearchResults(resultChunks);
     };
 
     await Promise.all(input.queries.map(search));
@@ -170,15 +187,15 @@ export const executeSearch = async (input: {
 
     return uniqueSearchResults;
   } else if (input.mode === 'quality') {
-    const searchResultsBlockId = crypto.randomUUID();
-    let searchResultsEmitted = false;
+    const emitSearchResults = createSearchResultsEmitter({
+      researchBlock,
+      session: input.session,
+    });
 
     const searchResults: Chunk[] = [];
 
     const search = async (q: string) => {
-      const res = await searchSearxng(q, {
-        ...(input.searchConfig ? input.searchConfig : {}),
-      });
+      const res = await safeSearchWeb(q, input.searchConfig);
 
       let resultChunks: Chunk[] = [];
 
@@ -198,41 +215,7 @@ export const executeSearch = async (input: {
 
       searchResults.push(...resultChunks);
 
-      if (!searchResultsEmitted) {
-        searchResultsEmitted = true;
-
-        researchBlock.data.subSteps.push({
-          id: searchResultsBlockId,
-          type: 'search_results',
-          reading: resultChunks,
-        });
-
-        input.session.updateBlock(researchBlock.id, [
-          {
-            op: 'replace',
-            path: '/data/subSteps',
-            value: researchBlock.data.subSteps,
-          },
-        ]);
-      } else if (searchResultsEmitted) {
-        const subStepIndex = researchBlock.data.subSteps.findIndex(
-          (step) => step.id === searchResultsBlockId,
-        );
-
-        const subStep = researchBlock.data.subSteps[
-          subStepIndex
-        ] as SearchResultsResearchBlock;
-
-        subStep.reading.push(...resultChunks);
-
-        input.session.updateBlock(researchBlock.id, [
-          {
-            op: 'replace',
-            path: '/data/subSteps',
-            value: researchBlock.data.subSteps,
-          },
-        ]);
-      }
+      emitSearchResults(resultChunks);
     };
 
     await Promise.all(input.queries.map(search));
